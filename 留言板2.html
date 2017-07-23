@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<style>
+    a{
+        text-decoration: none;
+        color:#000
+    }
+    .comment{
+        margin:0 auto;
+    }
+    .comment,.takeCom{
+        width:500px;
+        border:1px solid #cccccc;
+    }
+    .noSay{
+        text-align:center;
+        line-height:50px;
+    }
+    .reply{
+        padding-top:10px;
+        margin:0 25px;
+        border-top:1px solid #ccc
+    }
+    .handle{
+        float: right;
+    }
+    .operation:after{
+        display: block;
+        content: '';
+        clear: both;
+    }
+    .replyTime{
+        float: left;
+    }
+    .handle a{
+        padding: 0 10px 0 25px;
+        background-size:24px 20px;
+    }
+    .ding{
+        background: url("img/赞.png") 0 0 no-repeat;
+    }
+    .cai{
+        background: url("img/踩.png") 0 0 no-repeat;
+    }
+    .cut{
+        background: url("img/删除.png") 0 0 no-repeat;
+    }
+    textarea{
+        width:450px;
+        height:100px;
+        display: block;
+        margin:20px auto 0;
+    }
+    .but{
+        border:1px solid #ccc;
+        width:80px;
+        line-height:25px;
+        padding:0;
+        margin:10px;
+        background:linear-gradient(green, #00ff1d,green );
+        float: right;
+    }
+    .takeCom{
+        margin:40px auto
+    }
+    .takeCom:after{
+        display: block;
+        content: '';
+        clear: both;
+    }
+    .page{
+        overflow: hidden;
+    }
+    .page span{
+        float: right;
+        margin:10px;
+    }
+    .page a{
+        display: inline-block;
+        width:30px;
+        line-height:30px;
+        text-align: center;
+        border:1px solid #aaa;
+        margin-right:5px;
+    }
+    .active{
+        background: #ccc;
+    }
+</style>
+<body ng-app="say" ng-controller="weibo">
+    <!--留言-->
+    <div class="takeCom">
+        <textarea name="textarea" id="" class="takeText" ng-model="inputText"></textarea>
+        <div class="takeSubmit">
+            <input type="button" class="but" value="提交留言" ng-click="submitMsg()">
+        </div>
+    </div>
+    <!--已留言-->
+    <div class='comment'>
+        <div class="noSay" ng-clark ng-show="replies.length == 0">暂无留言</div>
+        <div class="page">
+            <span>
+                <a href="javascript:void(0)" ng-repeat="item in pages" ng-click="getPage(item.num)" class="{{item.className}}">{{item.num}}</a>
+            </span>
+
+        </div>
+        <div class="messList">
+            <div class="reply" ng-repeat="item in replies">
+                <p class="replyCon">{{item.content}}</p>
+                <p class="operation">
+                    <span class="replyTime">{{item.time*1000|date:'yyyy-MM-dd hh:mm:ss'}}</span>
+                    <span class="handle">
+                        <a href="javascript:void(0)" class="ding" ng-click="fnDing(item.id)">{{item.ding}}</a>
+                        <a href="javascript:void(0)" class="cai" ng-click="fnCai(item.id)">{{item.cai}}</a>
+                        <a href="javascript:void(0)" class="cut" ng-click="fnCut(item.id)"></a>
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+<script src="angular.min.js"></script>
+<script>
+    var app = angular.module("say",[]);
+    app.controller("weibo",function ($scope,$http) {
+//        $scope.replies=[{id:1,content:'试试',time:1500107996.771,ding:1,cai:5},{id:2,content:'哈哈哈',time:1500109996.771,ding:200,cai:3},{id:3,content:'第三条留言啦',time:1500309996.771,ding:52,cai:10}]
+        $scope.pages=[];
+        $scope.curPage = 1;
+        //显示页码
+        //$scope.pages = [{num:1,className:''},{num:2,className:'active'}]
+        function totalPages() {
+            $http.get('weibo.php',{
+                params:{act:'get_page_count'}
+            }).success(function (res) {
+                //console.log(res)
+                setPage(res);
+            }).error(function () {
+                alert('请求失败')
+            })
+        }
+        totalPages();
+        //设置页码样式
+        function setPage(res){
+            $scope.pages=[];
+            for(var i=1;i<=res;i++){
+                if(i == $scope.curPage){
+                    $scope.pages.push({num:i,className:'active'})
+                }else{
+                    $scope.pages.push({num:i,className:''})
+                }
+            }
+        }
+
+        //显示留言(在点击页数的过程中，不断读取数据，所以进行封装)
+       function getPage(page) {
+           //alert(page)
+           $scope.curPage = page;
+           //console.log($scope.pages.length)
+           setPage($scope.pages.length)
+           $http.get('weibo.php',{
+               params:{act:'get',page:page}   //配置地址
+           }).success(function (arr) {
+               //console.log(arr);
+               //该语句只是为了读取数据库的数据
+               $scope.replies = arr;
+           }).error(function (err) {
+               console.log('请求失败')
+           })
+       }
+        //一开始加载第一页数据
+        getPage(1);
+       $scope.getPage = getPage;
+
+        //提交留言
+        $scope.submitMsg = function () {
+            $scope.curPage = 1;
+            $http.get('weibo.php',{
+                params:{act:'add',content:$scope.inputText}
+            }).success(function (res) {
+                //提交成功后，向replies中添加数据并清空文本框
+                //往数组中添加，才能提交之后同时显示在留言区
+                $scope.replies.unshift({
+                    id:res.id,
+                    content:$scope.inputText,
+                    time:res.time,
+                    ding:0,
+                    cai:0
+                });
+                $scope.inputText = '';
+                //一页最多显示6条（多余可做删除操作，删除最下面的元素）
+                if($scope.replies.length>5){
+                    $scope.replies.pop()
+                }
+                totalPages();
+            }).error(function () {
+                alert('提交失败')
+            })
+        }
+
+        //顶和踩
+        $scope.fnDing = function (id) {
+            //alert(id)
+            $http.get('weibo.php',{
+                params:{act:'ding',id:id}
+            }).success(function () {
+                for(var i in $scope.replies){
+                    if($scope.replies[i].id == id){
+                        $scope.replies[i].ding++
+                    }
+                }
+            }).error(function () {
+                alert('请求错误')
+            })
+        };
+        $scope.fnCai = function (id) {
+            $http.get('weibo.php',{
+                params:{act:'cai',id:id}
+            }).success(function () {
+                for(var i in $scope.replies){
+                    if($scope.replies[i].id == id){
+                        $scope.replies[i].cai++
+                    }
+                }
+            }).error(function () {
+                alert('请求错误')
+            })
+        };
+        $scope.fnCut = function(id){
+            $http.get('weibo.php',{
+                params:{act:'cut',id:id}
+            }).success(function(){
+                for(var i in $scope.replies){
+                    if($scope.replies[i].id == id){
+                        $scope.replies.splice(i,1)
+                    }
+                }
+            }).error()
+        }
+    })
+</script>
